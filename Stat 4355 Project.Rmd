@@ -1,0 +1,457 @@
+---
+title: "Stat 4355 Project"
+author: "Kenan Stredic"
+date: "2023-04-25"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+data <- read.csv("shark_tank_companies.csv")
+sharks <- as.data.frame(data)
+attach(sharks)
+sharks <- subset(sharks, select = -c(description, entrepreneurs, website, season, shark1, shark2, shark3, shark4, shark5, title, episode_season, multiple_entreprenuers))
+head(sharks)
+library(dplyr)
+MakeNum <- function(x) as.numeric(as.factor(x))
+sharks <- mutate_at(sharks, 1:4, MakeNum)
+sharks$deal <- ifelse(sharks$deal=="2",1,0)
+head(sharks)
+
+library(tidyverse)
+model <- glm(deal ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks, family=binomial)
+summary(model)
+anova(model)
+with(summary(model), 1 - deviance/null.deviance)
+```
+
+```{r}
+library(MASS)
+# Standardized, Studentized, R-Student residuals
+standard_res <- stdres(model)
+student_res <- studres(model)
+r_student_res <- rstudent(model)
+
+# PRESS residuals
+# library(qpcR)
+# press_res <- PRESS(model)
+
+# Bar plots of residuals
+barplot(height = standard_res ,
+ main = "Standerized Residuals", xlab = "Index",
+ ylab = "Standerized Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+
+barplot(height = student_res ,
+ main = "Studentized Residuals", xlab = "Index",
+ ylab = "Studentized Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+
+```
+
+```{r}
+# Measures of influence
+myInf <- influence.measures(model)
+summary(myInf)
+
+hat <- as.data.frame(hatvalues(model))
+hat
+dffits <- as.data.frame(dffits(model))
+dffits
+dfbetas <- as.data.frame(dfbetas(model))
+dfbetas
+cooksD <- as.data.frame(cooks.distance(model))
+cooksD
+covratio <- as.data.frame(covratio(model))
+covratio
+
+# Plots of DFBETAS, Cooks D, and Hat values
+library(car)
+dfbetasPlots(model,intercept=T)
+influenceIndexPlot(model, vars=c("Cook", "Studentized", "hat"))
+
+# VIF values
+vif_values <- vif(model)
+vif_values
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+abline(v = 1, lwd = 3, lty = 2)
+cor_dat = cor(sharks)
+print(cor_dat)
+
+# Normal Probability of Residuals
+# par(mfrow=c(1,2))
+hist(student_res, breaks=10, freq=F, col="cornflowerblue",
+cex.axis=1.5, cex.lab=1.5, cex.main=2, main = "Normal Probability of Resdiuals")
+# qqPlot(model)
+
+# Residuals vs Fitted  Values
+residualPlot(model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+
+# Residuals against the Regressor
+residualPlots(model, type="rstudent", fitted=F, quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+```
+
+```{r}
+# Variance-stabilizing transformations
+# Transforming Model using log, square root, and cube root, arcsine of square root, reciprocal square root, and reciprocal
+# Original model with no transformation
+# R-student Residuals
+r_student_res <- rstudent(model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for original model
+residualPlot(model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+#Q-Q plot for original model
+qqnorm(model$residuals)
+qqline(model$residuals)
+# Influence measures
+myInf <- influence.measures(model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(model, vars=c("Cook", "Studentized", "hat"))
+```
+
+```{r}
+# Log base 10 y transformation
+MakeNum <- function(x) as.numeric(as.factor(x))
+sharks <- mutate_at(sharks, 1, MakeNum)
+log_y <- log(sharks$deal, base = 10)
+log_y_model <- glm(log_y ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks, family = binomial)
+summary(log_y_model)
+with(summary(log_y_model), 1 - deviance/null.deviance)
+# R-student Residuals
+r_student_res <- rstudent(log_y_model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for log model
+residualPlot(log_y_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+# Influence measures
+myInf <- influence.measures(log_y_model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(log_y_model, vars=c("Cook", "Studentized", "hat"))
+
+```
+
+```{r}
+# Square root transformation
+sharks$deal <- ifelse(sharks$deal=="2",1,0)
+sqrt_y <- sqrt(sharks$deal)
+sqrt_model <- glm(sqrt_y ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks, family = binomial)
+summary(sqrt_model)
+with(summary(sqrt_model), 1 - deviance/null.deviance)
+# R-student Residuals
+r_student_res <- rstudent(sqrt_model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for square root model
+residualPlot(sqrt_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+# Influence measures
+myInf <- influence.measures(sqrt_model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(sqrt_model, vars=c("Cook", "Studentized", "hat"))
+```
+
+```{r}
+# Cube root transformation
+cube_y <- sharks$deal^(1/3)
+cube_model <- glm(cube_y ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks, family = binomial)
+summary(cube_model)
+with(summary(cube_model), 1 - deviance/null.deviance)
+# R-student Residuals
+r_student_res <- rstudent(cube_model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for cube root model
+residualPlot(cube_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+# Influence measures
+myInf <- influence.measures(cube_model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(cube_model, vars=c("Cook", "Studentized", "hat"))
+
+
+```
+
+```{r}
+# Arcsine of square root transformation
+asin_sqrt_y <- asin(sqrt(sharks$deal))
+asin_sqrt_model <- glm(asin_sqrt_y ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks)
+summary(asin_sqrt_model)
+with(summary(asin_sqrt_model), 1 - deviance/null.deviance)
+# R-student Residuals
+r_student_res <- rstudent(asin_sqrt_model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for arcsine of square root model
+residualPlot(asin_sqrt_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+# Influence measures
+myInf <- influence.measures(asin_sqrt_model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(asin_sqrt_model, vars=c("Cook", "Studentized", "hat"))
+
+
+
+```
+
+```{r}
+# Reciprocal square root transformation
+MakeNum <- function(x) as.numeric(as.factor(x))
+sharks <- mutate_at(sharks, 1:4, MakeNum)
+reci_sqrt_y <- sharks$deal^(-1/2)
+reci_sqrt_model <- glm(reci_sqrt_y ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks)
+summary(reci_sqrt_model)
+with(summary(reci_sqrt_model), 1 - deviance/null.deviance)
+# R-student Residuals
+r_student_res <- rstudent(reci_sqrt_model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for reciprocal square root model
+residualPlot(reci_sqrt_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+# Influence measures
+myInf <- influence.measures(reci_sqrt_model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(reci_sqrt_model, vars=c("Cook", "Studentized", "hat"))
+```
+
+```{r}
+# Reciprocal transformation
+reci_y <- sharks$deal^(-1)
+reci_y_model <- glm(reci_y ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks)
+summary(reci_y_model)
+with(summary(reci_y_model), 1 - deviance/null.deviance)
+# R-student Residuals
+r_student_res <- rstudent(reci_y_model)
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+# Residuals vs Fitted  Values for reciprocal model
+residualPlot(reci_y_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+# Influence measures
+myInf <- influence.measures(reci_y_model)
+# Cook's D, Studentized residuals, and Hat value plots
+summary(myInf)
+influenceIndexPlot(reci_y_model, vars=c("Cook", "Studentized", "hat"))
+```
+
+```{r}
+# Transformations to linearize the model
+# Transforming model using log base 10 x and  1/x 
+# Log base 10 x transformation
+log_sharks <- sharks
+vars <- c("episode", "category", "location", "askedfor", "exchangeforstake", "valuation")
+log_sharks[vars] <- lapply(log_sharks[vars], log10)
+log_x_model <- glm(deal ~ episode + category + location + askedfor + exchangeforstake + valuation, data = log_sharks)
+summary(log_x_model)
+with(summary(log_x_model), 1 - deviance/null.deviance)
+# Residuals vs Fitted  Values for log model
+residualPlot(log_x_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+```
+
+```{r}
+# 1 / x transformation
+x_sharks <- sharks
+vars <- c("episode", "category", "location", "askedfor", "exchangeforstake", "valuation")
+x_sharks[vars] <- lapply(x_sharks[vars], function(x) 1/x)
+x_model <- glm(deal ~ episode + category + location + askedfor + exchangeforstake + valuation, data = x_sharks)
+summary(x_model)
+with(summary(x_model), 1 - deviance/null.deviance)
+# Residuals vs Fitted  Values for log model
+residualPlot(x_model, type="rstudent", quadratic=F, col = "dodgerblue",
+pch=16, cex=1.5, cex.axis=1.5, cex.lab=1.5)
+```
+
+```{r}
+# Analytical Methods for Selecting a Transformation
+# BoxCox Transformation
+sharks <- as.data.frame(data)
+attach(sharks)
+sharks <- subset(sharks, select = -c(description, entrepreneurs, website, season, shark1, shark2, shark3, shark4, shark5, title, episode_season, multiple_entreprenuers))
+MakeNum <- function(x) as.numeric(as.factor(x))
+sharks <- mutate_at(sharks, 1:4, MakeNum)
+model <- glm(deal ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks)
+
+bc <- boxCox(model, lambda=seq(-2,2,1/10))
+lambda <- bc$x[which.max(bc$y)]
+# Best value for lambda is .1414141
+bc_model <- glm(((deal^lambda-1)/lambda) ~ episode + category + location + askedfor + exchangeforstake + valuation, data = sharks, family = binomial)
+summary(bc_model)
+with(summary(bc_model), 1 - deviance/null.deviance)
+#Q-Q plot for Box-Cox transformed model
+qqnorm(bc_model$residuals)
+qqline(bc_model$residuals)
+# In the Profile Log-likelihood plot, the 95% CI does not include the value 1, 
+# which indicates that the transformation is useful
+# We will continue with the box cox transformation
+```
+```{r}
+# Standardized, Studentized, R-Student residuals
+standard_res <- stdres(log_x_model)
+student_res <- studres(log_x_model)
+r_student_res <- rstudent(log_x_model)
+
+# PRESS residuals
+# library(qpcR)
+# press_res <- PRESS(model)
+
+# Bar plots of residuals
+barplot(height = standard_res ,
+ main = "Standerized Residuals", xlab = "Index",
+ ylab = "Standerized Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+
+barplot(height = student_res ,
+ main = "Studentized Residuals", xlab = "Index",
+ ylab = "Studentized Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+
+barplot(height = r_student_res ,
+ main = "R-student Residuals", xlab = "Index",
+ ylab = "R-student Residiuals",  ylim=c(-3,3))
+abline(h=1, col = "Red", lwd=2)
+abline(h=-1, col = "Red", lwd=2)
+```
+
+<!-- ```{r} -->
+<!-- library(olsrr) -->
+<!-- # All possible model selection -->
+<!-- ap <- ols_step_all_possible(log_x_model) -->
+<!-- ap -->
+<!-- plot(ap) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # All subset model selection -->
+<!-- as <- ols_step_all_possible(asin_sqrt_model) -->
+<!-- as -->
+<!-- plot(as) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Best subset model selection -->
+<!-- bs <- ols_step_best_subset(asin_sqrt_model) -->
+<!-- bs -->
+<!-- plot(bs) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- f <- step(log_x_model) -->
+<!-- f -->
+<!-- plot(f) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- # Forward stepwise selection with p-values -->
+<!-- f <- ols_step_forward_p(asin_sqrt_model, details = TRUE) -->
+<!-- f -->
+<!-- plot(f) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Backward stepwise selection with p-values -->
+<!-- b <- ols_step_backward_p(log_x_model, details = TRUE) -->
+<!-- b -->
+<!-- plot(b) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Forward AIC selection -->
+<!-- fsa <- ols_step_forward_aic(asin_sqrt_model, details = TRUE) -->
+<!-- fsa -->
+<!-- plot(fsa) -->
+<!-- # variables exchangeforstake, valuation, and episode were all added in order to get the lowest AIC value -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Backward AIC selection -->
+<!-- bsa <- ols_step_backward_aic(asin_sqrt_model, details = TRUE) -->
+<!-- bsa -->
+<!-- plot(bsa) -->
+<!-- # variables askedfor, location, and category were all removed in order to get the lowest AIC value -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Stepwise AIC selection -->
+<!-- sa <- ols_step_both_aic(asin_sqrt_model, details = TRUE) -->
+<!-- sa -->
+<!-- plot(sa) -->
+<!-- # variables exchangeforstake, valuation, and episode were all added and  -->
+<!-- # variables askedfor, location, and category were all removed in order to get the lowest AIC value -->
+<!-- ``` -->
+
+
+```{r}
+# Lasso
+library(glmnet)
+x = sharks[,2:7]; x = as.matrix(x)
+y = sharks[,1];
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y, alpha = 1, lambda = lambdas, standardize = TRUE)
+lambda_best <- lasso_reg$lambda.min
+lasso_model <- glmnet(x, y, alpha = 1, lambda = lambda_best, standardize = TRUE)
+lasso_model$beta
+```
+
+```{r}
+# Final coefficients 
+summary(log_x_model)
+coef(log_x_model)
+print("R-squared: ")
+with(summary(log_x_model), 1 - deviance/null.deviance)
+
+stepmodel <- log_x_model %>% stepAIC(trace = FALSE)
+summary(stepmodel)
+coef(stepmodel)
+with(summary(stepmodel), 1 - deviance/null.deviance)
+```
+
